@@ -1,0 +1,11 @@
+# Personal overrides (gitignored, just for me)
+
+<!-- Loaded alongside CLAUDE.md, for this project only, for you only. Put things here that teammates don't share. -->
+
+## My environment
+<!-- e.g. "Local DB runs on port 5433", "Use `pnpm` via corepack", "My sandbox URL is ..." -->
+-
+
+## My preferences
+<!-- e.g. "Explain changes briefly", "Ask before running migrations", "I'm new to Go, explain idioms" -->
+-

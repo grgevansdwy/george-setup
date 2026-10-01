@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "db-readonly": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL_READONLY}"]
+    },
+    "db-readwrite": {
+      "command": "npx",
+      "args": ["-y", "<your-read-write-postgres-mcp-server>", "${DATABASE_URL}"]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_TOKEN}" }
+    }
+  }
+}

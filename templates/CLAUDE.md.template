@@ -1,0 +1,58 @@
+# <Project name>
+
+<!--
+CLAUDE.md template: WHAT / WHY / HOW. Delete every comment and any section that doesn't apply.
+Rules: under 200 lines, specific and checkable, only what Claude can't infer from the code.
+This file is ADVICE. Anything that must always happen belongs in a hook (.claude/settings.json).
+-->
+
+## WHY: purpose
+<!-- 2–4 lines. What the product does, who uses it, what matters most (e.g. "correctness over speed", "public API — never break compat"). This gives Claude the big picture so it makes better small decisions. -->
+
+## WHAT: codebase map
+
+### Stack
+<!-- Language + version, framework + version, DB, key libraries, package manager. -->
+-
+
+### Layout
+<!-- Only the directories that matter, one line each. -->
+```
+src/
+  api/        #
+  services/   #
+tests/        #
+```
+
+### Key modules
+<!-- The 3–8 files/modules Claude should know about, and their roles. -->
+- `path` —
+
+## HOW: working here
+
+### Commands
+<!-- Exact commands. Claude will run these. -->
+- Install: ``
+- Dev: ``
+- Test (all): ``
+- Test (single file): ``
+- Lint / typecheck: ``
+- Build: ``
+
+### Conventions
+<!-- Only things that differ from the language's defaults or that Claude would get wrong. Be specific:
+     good: "Use `zod` schemas in src/schemas for all request validation"
+     bad:  "Write clean, maintainable code" -->
+-
+
+### Workflow
+- Plan non-trivial work with `/interview`, review with `/review`, tidy up with `/cleanup`, and commit with `/recap`.
+- Plans live in `docs/plans/`.
+
+### Don't
+<!-- Hard "never" rules that a hook can't express. -->
+-
+
+## What Claude gets wrong
+<!-- Add an entry each time Claude makes the same mistake twice. Delete the section if it's empty. -->
+-
