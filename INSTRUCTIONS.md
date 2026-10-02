@@ -4,6 +4,8 @@
 > *"Read `<path-to-this-repo>/INSTRUCTIONS.md` and install the harness into this project."*
 >
 > **For the agent:** follow Part A step by step. Part B covers how to write CLAUDE.md, and Part C is the day-to-day guide you'll hand to the user at the end.
+>
+> **No user available?** If you're running headless or as a subagent, wherever a step says to ask, choose the safest default: keep the existing file, skip optional steps, and mark anything you couldn't check as unverified. List every assumption in the A9 report.
 
 ## What gets installed
 
@@ -12,10 +14,11 @@ All of it is project-level, under `<target>/.claude/`. **Never write to `~/.clau
 | Piece | Path | What it does |
 |---|---|---|
 | Settings | `.claude/settings.json` | Wires up the hooks and adds `permissions.deny` rules |
-| Hook: format | `.claude/hooks/format.sh` | After each Edit/Write, formats the file using the formatter for its extension (prettier, ruff/black, gofmt, rustfmt, shfmt), but only if that formatter is installed |
+| Hook: format | `.claude/hooks/format.sh` | After each Edit/Write, formats the file, but only with a formatter the project has opted into: prettier, ruff or black need a config file or dependency. gofmt and rustfmt always apply |
 | Hook: block-dangerous | `.claude/hooks/block-dangerous.sh` | Blocks commands like `rm -rf /` and `~`, force push, `reset --hard`, `clean -f`, `DROP TABLE`, and `curl … \| sh` |
 | Hook: protect-files | `.claude/hooks/protect-files.sh` | Blocks edits to `.env*` (templates are allowed), keys, lockfiles and `.git/` |
 | Hook: notify | `.claude/hooks/notify.sh` | Shows a desktop notification when Claude needs you (macOS and Linux) |
+| Self-test | `.claude/hooks/selftest.sh` | Runs test cases against every hook. It isn't attached to any hook event |
 | Subagents | `.claude/agents/*.md` | `code-reviewer`, `explorer`, `test-writer`, `debugger`, `planner` |
 | Skills | `.claude/skills/*/SKILL.md` | `/recap`, `/cleanup`, `/cleanup-all`, `/interview`, `/explain`, `/review` |
 | Project memory | `CLAUDE.md` | **Written for each project** from `templates/CLAUDE.md.template` (see Part B) |
@@ -32,40 +35,55 @@ Throughout this section, `SRC` is this repo's root (where this file is) and `TGT
 
 ### A1. Preflight
 1. Find `TGT`. It's the current working directory unless the user named another one. Confirm it's a project root, which usually means it has `.git/` or a manifest file. **Stop if `TGT` is `SRC` or is inside `~/.claude`.**
-2. Run `git -C "$TGT" status --porcelain`. If there are uncommitted changes, warn the user and suggest they commit first so the install is easy to undo. Continue only if they agree.
+   - The session should run in `TGT`. If it's running in `SRC`, SRC's own hooks are live in your session, which is harmless but means the dangerous-command blocker also applies to your own commands.
+2. Run `git -C "$TGT" status --porcelain`.
+   - Modified or staged files (anything except `??` lines) mean there's uncommitted work. Warn the user and suggest committing first so the install is easy to undo. Continue only if they agree.
+   - Untracked files (`??` lines) are fine.
+   - If `TGT` isn't a git repo, warn that the install can't be undone with git and ask whether to continue.
 3. Check the tools the hooks need:
    - `jq` is required by the hooks. If it's missing, tell the user how to install it (`brew install jq` or `apt install jq`). The hooks still run without it, but they skip their checks and warn.
-   - Note which formatters exist: `prettier` (or in `node_modules/.bin`), `ruff`, `black`, `gofmt`, `rustfmt`, `shfmt`.
+   - Note which formatters the project **is configured for**: prettier config or dependency, `[tool.ruff]` or `ruff.toml`, `[tool.black]`, a Go or Rust project. Also check whether each one is installed. Any formatter that is configured but not installed goes into A9 as a follow-up.
 4. List what's already in `TGT/.claude/`, plus `TGT/CLAUDE.md`, `TGT/CLAUDE.local.md` and `TGT/.mcp.json`. **Nothing that already exists may be silently overwritten.**
 
 ### A2. Copy hooks, agents and skills
-For each file under `SRC/.claude/hooks/`, `SRC/.claude/agents/` and `SRC/.claude/skills/`:
+The units to copy are:
+- each hook script in `SRC/.claude/hooks/`
+- each agent file in `SRC/.claude/agents/`
+- each skill **directory** in `SRC/.claude/skills/`
+
+Create any missing directories, and copy with `cp -p` so file permissions are kept. For each unit:
 - If it doesn't exist in `TGT`, copy it.
-- If a file with the same name exists and is identical, skip it.
-- If it exists and is different, show the user a short diff and ask: keep theirs, replace with ours, or install ours under a new name (e.g. `review-harness`). For skills, also change the `name:` in the frontmatter if you rename one.
+- If it exists and is identical, skip it.
+- If it exists and is different, show the user a short diff and ask: keep theirs, replace with ours, or install ours under a new name (e.g. `review-harness`).
+
+When you rename something:
+- For a skill, rename the directory **and** the `name:` in its frontmatter.
+- For an agent, rename the file and its `name:`, then update every skill that calls it by name. `/review` calls `code-reviewer`, `/interview` calls `planner`, and `/explain` and `/cleanup-all` call `explorer`.
+- Use the new names in the CLAUDE.md you write and in the cheat-sheet you give the user.
 
 Then run `chmod +x "$TGT"/.claude/hooks/*.sh`.
 
 ### A3. Merge settings.json
 - If `TGT/.claude/settings.json` doesn't exist, copy `SRC/.claude/settings.json`.
-- If it does exist, **merge** with the command below. Existing keys are kept, `permissions.deny` lists are combined, and each hook group from SRC is appended unless an identical one is already there:
-  ```bash
-  jq -s '
-    def addgroups($a; $b): reduce ($b | keys[]) as $ev ($a;
-      .[$ev] = ((.[$ev] // []) + [ $b[$ev][] | select(. as $g | (($a[$ev] // []) | index([$g])) | not) ]));
-    .[0] as $t | .[1] as $s
-    | $t
-    | .permissions = (($t.permissions // {}) + {deny: ((($t.permissions.deny // []) + ($s.permissions.deny // [])) | unique)})
-    | .hooks = addgroups($t.hooks // {}; $s.hooks // {})
-  ' "$TGT/.claude/settings.json" "$SRC/.claude/settings.json" > /tmp/settings.merged.json \
-  && jq . /tmp/settings.merged.json >/dev/null && mv /tmp/settings.merged.json "$TGT/.claude/settings.json"
-  ```
+- If it does exist:
+  1. **Check for conflicting hooks first.** Look at every existing `PostToolUse` group whose `matcher` mentions `Edit` or `Write`. If its command runs a formatter (prettier, ruff, black, eslint --fix, biome and so on), ask before adding ours, so files don't get formatted twice. If the user says no, remove the `format.sh` group from the merge input.
+  2. **Merge** with the command below. It keeps all existing keys (including `permissions.allow`) and their order. It appends SRC's deny rules that aren't already there, and appends each SRC hook group unless an identical one already exists. "Identical" means a JSON-equal group, so after merging, check that our hook scripts don't appear twice:
+     ```bash
+     tmp=$(mktemp) && jq -s '
+       def addnew($xs): reduce $xs[] as $x (.; if index([$x]) then . else . + [$x] end);
+       .[0] as $t | .[1] as $s
+       | $t
+       | .permissions = (($t.permissions // {}) | .deny = ((.deny // []) | addnew($s.permissions.deny // [])))
+       | .hooks = reduce (($s.hooks // {}) | to_entries[]) as $e (($t.hooks // {});
+           .[$e.key] = ((.[$e.key] // []) | addnew($e.value)))
+     ' "$TGT/.claude/settings.json" "$SRC/.claude/settings.json" > "$tmp" \
+     && jq . "$tmp" >/dev/null && mv "$tmp" "$TGT/.claude/settings.json"
+     ```
 - If `TGT/.claude/settings.local.json` exists, leave it alone. It's personal.
-- If the target already has its own formatter hook on `Edit|Write`, ask before adding ours, so files don't get formatted twice.
 
 ### A4. Adapt to the stack
 Look at the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Gemfile`, `composer.json`, `Makefile`, CI config) and then:
-1. **Formatter.** If the project uses something other than the defaults in `format.sh`, edit the matching `case` branch. For example: biome (`npx --no-install biome format --write`), `eslint --fix`, `dprint`, `clang-format`, `mix format`, `dotnet format`. If the project has no formatter at all, leave `format.sh` as it is, since it does nothing in that case.
+1. **Formatter.** `format.sh` runs prettier, ruff or black only if the project is configured for them, and gofmt and rustfmt always. If the project uses something else, edit the matching `case` branch. For example: biome (`npx --no-install biome format --write`), `eslint --fix`, `dprint`, `clang-format`, `mix format`, `dotnet format`. If the project has no formatter config, leave `format.sh` as it is: it won't touch JS or Python files. You can suggest adding a formatter in A9.
 2. **Protected files.** Add any project-specific lockfiles or generated files to `protect-files.sh`, such as generated API clients or `schema.prisma` migrations folders if they should never be hand-edited.
 3. **Dangerous commands.** Add project-specific destructive commands to `block-dangerous.sh` if relevant, such as `prisma migrate reset`, `rails db:drop` or `terraform destroy`.
 4. Make a note of the **test, lint and build commands**. They go into CLAUDE.md in A5.
@@ -79,11 +97,13 @@ Look at the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
    - Anything in your draft that you're unsure about
 3. Fill in `SRC/templates/CLAUDE.md.template` and write it to `TGT/CLAUDE.md`.
    - If `TGT/CLAUDE.md` **already exists**, don't replace it. Merge into it: keep all existing content, add missing sections in WHAT/WHY/HOW order, and show the user the diff.
-4. Check it: under 200 lines, no template comments left over, no secrets, and every command it lists actually runs (try the test and lint commands if they're cheap).
+4. Check it: under 200 lines, no template comments left over, and no secrets.
+   - **Commands must be real.** Use commands from the manifests, scripts, Makefile or CI. Don't invent them. If a command doesn't exist (for example, no lint or build step), write `none configured`.
+   - Run the test and lint commands if they're cheap. If one can't run because the right environment can't be found (wrong Python or Node version, missing virtualenv), keep it in CLAUDE.md, add `(unverified)` next to it, and list it in A9.
 5. For a large monorepo, add short `CLAUDE.md` files in the key subdirectories (e.g. `apps/web/CLAUDE.md`) rather than letting the root file grow. Claude loads those automatically when it works in that directory.
 
 ### A6. Personal files and .gitignore
-1. If `TGT/CLAUDE.local.md` doesn't exist, copy `SRC/templates/CLAUDE.local.md.template` there. Optionally fill in anything personal the user mentioned.
+1. If `TGT/CLAUDE.local.md` doesn't exist, copy `SRC/templates/CLAUDE.local.md.template` there. Fill in anything personal the user mentioned during the install (local ports, preferences). Otherwise leave the template as it is, comments included, as a starting point for them.
 2. Make sure `TGT/.gitignore` contains these lines, adding only the missing ones:
    ```
    CLAUDE.local.md
@@ -101,23 +121,18 @@ Ask: *"Do you want any MCP servers (database, GitHub, internal APIs)?"*
 ### A8. Verify
 Run these from `TGT`, then report the results:
 ```bash
-jq . .claude/settings.json >/dev/null && echo "settings OK"
-echo '{"tool_input":{"command":"git push --force origin main"}}' | .claude/hooks/block-dangerous.sh; echo "expect 2 → $?"
-echo '{"tool_input":{"command":"ls -la"}}'                       | .claude/hooks/block-dangerous.sh; echo "expect 0 → $?"
-echo '{"tool_input":{"file_path":".env"}}'                       | .claude/hooks/protect-files.sh;   echo "expect 2 → $?"
-echo '{"tool_input":{"file_path":".env.example"}}'               | .claude/hooks/protect-files.sh;   echo "expect 0 → $?"
-echo '{"tool_input":{"file_path":"/nonexistent"}}'               | .claude/hooks/format.sh;          echo "expect 0 → $?"
+bash .claude/hooks/selftest.sh      # tests every hook; ends with ALL PASSED
 ls .claude/agents .claude/skills
 wc -l CLAUDE.md
 ```
-**Heads-up:** after A3, the `block-dangerous` hook may already be active in your own session. Don't put literal destructive commands (like `rm -rf /`) in a Bash command line to test it, because the hook will block your own call. Write the test cases to a file and pipe them in from there.
+**Heads-up:** the `block-dangerous` hook may be active in your own session, either from SRC's settings or from TGT's after A3. It checks the **whole Bash command line**, including heredocs and `echo` strings. So never type test cases like a force push or `rm -rf` into a Bash command, because your own call will be blocked. Use `selftest.sh`, which keeps the cases inside the script. If you add project-specific rules in A4, add matching cases to `selftest.sh` with the Write or Edit tool.
 
 ### A9. Report to the user
 Finish with:
 1. What was **installed**, what was **merged**, and what was **skipped**, with the reason for each skip.
 2. Any **manual follow-ups**, such as installing `jq` or a formatter, setting MCP env vars, or reviewing the CLAUDE.md diff.
 3. **"Restart Claude Code (or run `/hooks` and `/agents` to check) so the new hooks, agents and skills load."**
-4. The cheat-sheet from Part C.
+4. A short cheat-sheet: the "Typical feature loop" block from Part C, plus one line pointing to Part C of `SRC/INSTRUCTIONS.md` for the full reference. Use the renamed skill names if anything was renamed.
 5. A suggestion to commit the changes, e.g. `chore: add Claude Code harness`. Don't commit unless the user says to.
 
 ---
@@ -193,14 +208,15 @@ Claude uses these automatically when they fit, or you can ask by name: *"use the
 |---|---|---|---|
 | `code-reviewer` | inherit | no | Reviews a diff: MUST FIX / SHOULD FIX / CONSIDER |
 | `explorer` | haiku | no | "How does X work?" with `path:line` citations |
-| `test-writer` | sonnet | yes (tests only) | Writes and runs tests in the project's existing style |
+| `test-writer` | sonnet | yes (told to edit tests only, not enforced) | Writes and runs tests in the project's existing style |
 | `debugger` | inherit | no | Reproduces a bug, tests hypotheses, reports the root cause with evidence. Doesn't fix |
 | `planner` | inherit | no | Writes a step-by-step implementation plan. No code |
 
 ### Hooks (always on)
 - Files are auto-formatted after each edit.
 - Destructive shell commands are blocked, and Claude is told why. If you really mean it, run the command yourself with `! <command>`.
-- Edits to `.env`, keys, lockfiles and `.git/` are blocked.
+- Edits to `.env`, keys, lockfiles and `.git/` are blocked. `permissions.deny` also blocks *reading* the common `.env` and key files. That list doesn't cover every name (for example `.env.staging`), so add your own in `settings.json` if needed.
+- `bash .claude/hooks/selftest.sh` checks that all the hooks still work.
 - You get a desktop notification when Claude is waiting on you.
 
 ### Tips

@@ -19,7 +19,7 @@ The agent copies the files, merges them with any `.claude/` setup you already ha
 - **Hooks:** multi-language auto-format, a dangerous-command blocker, secret and lockfile protection, and desktop notifications
 - **Templates:** `CLAUDE.md` (WHAT/WHY/HOW), `CLAUDE.local.md`, `.mcp.json` example (read-only and read-write split)
 
-See [INSTRUCTIONS.md](INSTRUCTIONS.md) for the full install procedure, the CLAUDE.md rules, and the day-to-day cheat-sheet. The design is based on `Claude Code Skills.pdf`.
+See [INSTRUCTIONS.md](INSTRUCTIONS.md) for the full install procedure, the CLAUDE.md rules, and the day-to-day cheat-sheet.
 
 ## Requirements
-`bash` and `jq`. The formatters are optional: prettier, ruff or black, gofmt, rustfmt and shfmt are each used only if installed.
+`bash` and `jq`. The formatters are optional. Prettier, ruff and black run only if the project is configured for them; gofmt and rustfmt run on Go and Rust files whenever they're installed. Test the hooks with `bash .claude/hooks/selftest.sh`.
