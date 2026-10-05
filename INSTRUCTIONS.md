@@ -24,8 +24,11 @@ All of it is project-level, under `<target>/.claude/`. **Never write to `~/.clau
 | Project memory | `CLAUDE.md` | **Written for each project** from `templates/CLAUDE.md.template` (see Part B) |
 | Personal memory | `CLAUDE.local.md` | Created from the template and gitignored |
 | MCP (optional) | `.mcp.json` | Only if the user asks for it, adapted from `templates/mcp.json.example` |
+| Templates | `templates/` | The whole folder, copied as it is (see A2). Blank `SPEC.md`, `SPEC-DETAILED.md`, `DECISIONS.md` and `DESIGN.md` to copy from when starting a piece of work, `BRAIN.md` as the architecture baseline they refer to, and the install-time templates above |
 
-Don't copy `README.md`, `INSTRUCTIONS.md`, `templates/`, or any PDF into the target.
+**The `templates/` folder must stay in the target.** The user may delete this repo once the install is done, so the target needs its own copy. Nothing installed in the target may point back to a path inside this repo.
+
+Don't copy `README.md`, `INSTRUCTIONS.md`, or any PDF into the target.
 
 ---
 
@@ -43,7 +46,7 @@ Throughout this section, `SRC` is this repo's root (where this file is) and `TGT
 3. Check the tools the hooks need:
    - `jq` is required by the hooks. If it's missing, tell the user how to install it (`brew install jq` or `apt install jq`). The hooks still run without it, but they skip their checks and warn.
    - Note which formatters the project **is configured for**: prettier config or dependency, `[tool.ruff]` or `ruff.toml`, `[tool.black]`, a Go or Rust project. Also check whether each one is installed. Any formatter that is configured but not installed goes into A9 as a follow-up.
-4. List what's already in `TGT/.claude/`, plus `TGT/CLAUDE.md`, `TGT/CLAUDE.local.md` and `TGT/.mcp.json`. **Nothing that already exists may be silently overwritten.**
+4. List what's already in `TGT/.claude/` and `TGT/templates/`, plus `TGT/CLAUDE.md`, `TGT/CLAUDE.local.md` and `TGT/.mcp.json`. **Nothing that already exists may be silently overwritten.**
 
 ### A2. Copy hooks, agents and skills
 The units to copy are:
@@ -62,6 +65,10 @@ When you rename something:
 - Use the new names in the CLAUDE.md you write and in the cheat-sheet you give the user.
 
 Then run `chmod +x "$TGT"/.claude/hooks/*.sh`.
+
+**Templates folder.** Copy every file in `SRC/templates/` to `TGT/templates/`, using the same copy / skip / ask rule per file. This copy is what keeps the templates available after `SRC` is deleted, so don't skip it and don't replace it with a symlink or a path back to `SRC`.
+- If `TGT/templates/` already exists and belongs to the project (Django, Jinja or email templates, for example), don't mix our files into it. Ask the user where to put them, and use `.claude/templates/` if they have no preference or aren't available.
+- Wherever the folder ends up, use that path in the CLAUDE.md you write and in the A9 report.
 
 ### A3. Merge settings.json
 - If `TGT/.claude/settings.json` doesn't exist, copy `SRC/.claude/settings.json`.
@@ -109,7 +116,7 @@ Look at the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
    CLAUDE.local.md
    .claude/settings.local.json
    ```
-3. Make sure `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/`, `.claude/skills/` and `CLAUDE.md` are **not** gitignored. They're meant to be shared with the team.
+3. Make sure `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/`, `.claude/skills/`, `templates/` and `CLAUDE.md` are **not** gitignored. They're meant to be shared with the team.
 
 ### A7. MCP servers (optional, so ask first)
 Ask: *"Do you want any MCP servers (database, GitHub, internal APIs)?"*
@@ -123,6 +130,7 @@ Run these from `TGT`, then report the results:
 ```bash
 bash .claude/hooks/selftest.sh      # tests every hook; ends with ALL PASSED
 ls .claude/agents .claude/skills
+ls templates                        # must match SRC/templates file for file
 wc -l CLAUDE.md
 ```
 **Heads-up:** the `block-dangerous` hook may be active in your own session, either from SRC's settings or from TGT's after A3. It checks the **whole Bash command line**, including heredocs and `echo` strings. So never type test cases like a force push or `rm -rf` into a Bash command, because your own call will be blocked. Use `selftest.sh`, which keeps the cases inside the script. If you add project-specific rules in A4, add matching cases to `selftest.sh` with the Write or Edit tool.
@@ -218,6 +226,18 @@ Claude uses these automatically when they fit, or you can ask by name: *"use the
 - Edits to `.env`, keys, lockfiles and `.git/` are blocked. `permissions.deny` also blocks *reading* the common `.env` and key files. That list doesn't cover every name (for example `.env.staging`), so add your own in `settings.json` if needed.
 - `bash .claude/hooks/selftest.sh` checks that all the hooks still work.
 - You get a desktop notification when Claude is waiting on you.
+
+### Templates (`templates/`)
+This folder lives in your project and stays there after the harness repo is deleted. Copy a file out of it when you need one, and leave the original blank.
+
+| File | Use it for |
+|---|---|
+| `SPEC.md` | The 1-2 page spec for the human: goal, never-go-wrong list, constraints, flow, milestones |
+| `SPEC-DETAILED.md` | The build spec for the coding agent: structure, data model, interfaces, milestone plans |
+| `DECISIONS.md` | The append-only decision log that the two specs reference by ID (`D1`, `D2`, …) |
+| `DESIGN.md` | A short design write-up: architecture, key decisions, failure handling, tradeoffs |
+| `BRAIN.md` | The architecture baseline Claude reads when reviewing a design or drafting `SPEC.md` |
+| `CLAUDE.md.template`, `CLAUDE.local.md.template`, `mcp.json.example` | Used during the install. Kept so you can redo or extend that setup later |
 
 ### Tips
 - **Two-Claude review:** for the most honest review, implement in session A and run `/review` in a brand-new session B.

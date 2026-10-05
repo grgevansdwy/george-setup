@@ -17,7 +17,7 @@ The agent copies the files, merges them with any `.claude/` setup you already ha
 - **Skills:** `/interview`, `/explain`, `/review`, `/cleanup`, `/cleanup-all`, `/recap`
 - **Subagents:** `code-reviewer`, `explorer`, `test-writer`, `debugger`, `planner`
 - **Hooks:** multi-language auto-format, a dangerous-command blocker, secret and lockfile protection, and desktop notifications
-- **Templates:** `CLAUDE.md` (WHAT/WHY/HOW), `CLAUDE.local.md`, `.mcp.json` example (read-only and read-write split)
+- **Templates:** `CLAUDE.md` (WHAT/WHY/HOW), `CLAUDE.local.md`, `.mcp.json` example (read-only and read-write split), plus `SPEC.md`, `SPEC-DETAILED.md`, `DECISIONS.md`, `DESIGN.md` and `BRAIN.md`. The whole `templates/` folder is copied into your project, so it's still there after you delete this clone
 
 See [INSTRUCTIONS.md](INSTRUCTIONS.md) for the full install procedure, the CLAUDE.md rules, and the day-to-day cheat-sheet.
 
