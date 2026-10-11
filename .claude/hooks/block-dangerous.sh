@@ -40,9 +40,18 @@ fi
 # Hard reset / clean that throws away work
 echo "$cmd" | grep -qE '\bgit\s+reset\s+--hard\b' && block "git reset --hard discards uncommitted work"
 echo "$cmd" | grep -qE '\bgit\s+clean\s+-[a-zA-Z]*f' && block "git clean -f deletes untracked files"
+# Discard every uncommitted change at once (same effect as reset --hard for the working tree)
+echo "$cmd" | grep -qE '\bgit\s+(checkout\s+(--\s+)?|restore\s+(--worktree\s+|-W\s+)?)\.(\s|$|;|&|\|)' && block "discarding all uncommitted changes"
+echo "$cmd" | grep -qE '\bgit\s+stash\s+clear\b' && block "git stash clear deletes every stash"
 
-# Destructive SQL
-echo "$cmd" | grep -qiE '\b(drop\s+(table|database|schema)|truncate\s+table)\b' && block "destructive SQL statement"
+# Writing secrets files through the shell (protect-files.sh only sees Edit/Write)
+echo "$cmd" | grep -qE '(>|>>|\btee\s+(-a\s+)?)\s*[^[:space:]]*\.env(\.[A-Za-z0-9_-]+)?(\s|$|;|&|\|)' \
+  && ! echo "$cmd" | grep -qE '\.env\.(example|sample|template)\b' \
+  && block "writing to a .env file from the shell"
+
+# Destructive SQL (ignore commit messages that merely mention it: strip -m "..." / -m '...')
+sql_cmd=$(echo "$cmd" | sed -E "s/-m[[:space:]]*\"[^\"]*\"//g; s/-m[[:space:]]*'[^']*'//g")
+echo "$sql_cmd" | grep -qiE '\b(drop\s+(table|database|schema)|truncate\s+table)\b' && block "destructive SQL statement"
 
 # Pipe-to-shell installs
 echo "$cmd" | grep -qE '\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b' && block "piping a download into a shell"

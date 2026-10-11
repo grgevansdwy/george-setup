@@ -14,12 +14,14 @@ Then tell Claude:
 The agent copies the files, merges them with any `.claude/` setup you already have, adapts the hooks to your stack, interviews you to write `CLAUDE.md`, and checks that everything works. Nothing is written to `~/.claude`.
 
 ## What's inside
-- **Skills:** `/interview`, `/explain`, `/review`, `/cleanup`, `/cleanup-all`, `/recap`
-- **Subagents:** `code-reviewer`, `explorer`, `test-writer`, `debugger`, `planner`
-- **Hooks:** multi-language auto-format, a dangerous-command blocker, secret and lockfile protection, and desktop notifications
-- **Templates:** `CLAUDE.md` (WHAT/WHY/HOW), `CLAUDE.local.md`, `.mcp.json` example (read-only and read-write split), plus `SPEC.md`, `SPEC-DETAILED.md`, `DECISIONS.md`, `DESIGN.md` and `BRAIN.md`. The whole `templates/` folder is copied into your project, so it's still there after you delete this clone
+- **Skills:** `/interview`, `/explain`, `/cleanup`, `/cleanup-all`, `/recap`, plus the parallel (fan-out / fan-in) ones: `/fanout`, `/deep-review`, `/investigate`
+- **Subagents:** `code-reviewer`, `explorer`, `test-writer`, `debugger`, `planner`, plus `implementer` (works in its own git worktree), `integrator` (merges parallel work) and `verifier` (fact-checks other agents' findings)
+- **Workflow:** `/audit`, a saved dynamic workflow that fans out one agent per file and verifies every finding
+- **Hooks:** multi-language auto-format, a dangerous-command blocker, secret and lockfile protection, a verify gate that won't let Claude say "done" while the fast checks fail, and desktop notifications
+- **Settings:** an allowlist for safe git commands (fewer permission prompts, which matters a lot once several agents run at once) and `worktree.baseRef: "head"` so parallel workers start from your branch
+- **Templates:** `CLAUDE.md` (WHAT/WHY/HOW), `CLAUDE.local.md`, `.mcp.json` example (read-only and read-write split), `verify.sh.example` and `worktreeinclude.example`, plus `SPEC.md`, `SPEC-DETAILED.md`, `DECISIONS.md`, `DESIGN.md` and `BRAIN.md`. The whole `templates/` folder is copied into your project, so it's still there after you delete this clone
 
 See [INSTRUCTIONS.md](INSTRUCTIONS.md) for the full install procedure, the CLAUDE.md rules, and the day-to-day cheat-sheet.
 
 ## Requirements
-`bash` and `jq`. The formatters are optional. Prettier, ruff and black run only if the project is configured for them; gofmt and rustfmt run on Go and Rust files whenever they're installed. Test the hooks with `bash .claude/hooks/selftest.sh`.
+`git`, `bash` and `jq`. Parallel features (`/fanout`, worktree subagents, `/batch`) need a git repository. The formatters are optional. Prettier, ruff and black run only if the project is configured for them; gofmt and rustfmt run on Go and Rust files whenever they're installed. Test the hooks with `bash .claude/hooks/selftest.sh`.

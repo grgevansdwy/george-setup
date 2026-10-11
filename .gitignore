@@ -4,3 +4,9 @@ Claude Code Skills.pdf
 # Personal Claude files
 CLAUDE.local.md
 .claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Claude Code worktrees (parallel sessions and subagents)
+.claude/worktrees/
