@@ -17,7 +17,8 @@ Topic from the user: $ARGUMENTS
 - **Keep asking** until you could hand this to another engineer without them needing to ask anything. Then summarize the requirements back and get a "yes".
 
 ## 2. Plan (delegate)
-- Run the **planner** subagent. Pass it the confirmed requirements, the user's decisions, and the relevant file paths you already found.
+- Run the **planner** subagent. Pass it the confirmed requirements, the user's decisions, and the relevant file paths you already found. Ask it to fill in the **Work units** table, so the plan can be built in parallel with `/fanout`.
+- For a large or unfamiliar area, first send 2-3 **explorer** subagents in parallel (one per area, in a single message) and pass their findings to the planner, so the planner doesn't have to read everything itself.
 - Choose `TASK_NAME` in UPPER_SNAKE_CASE from the topic (e.g. `USER_AUTH`).
 - Write the planner's output to `docs/plans/PLAN_<TASK_NAME>.md` (create `docs/plans/` if needed). Add at the top:
   ```
@@ -32,5 +33,6 @@ Tell the user in plain language:
 - The files that will change
 - Risks or open questions
 - The path to the plan file
+- Whether it's worth fanning out, and if so the waves (e.g. "U0 first, then U1-U3 in parallel")
 
-End by asking whether to start implementing step 1.
+End by asking how to build it: `/fanout` (parallel, uses more tokens, faster for 3+ independent units) or step by step here.

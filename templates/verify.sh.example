@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# .claude/verify.sh — the project's FAST checks, run by .claude/hooks/verify-gate.sh
+# whenever Claude (or a parallel worker) is about to say it's done.
+#
+# Keep it fast: aim for under 60 seconds. It runs at the end of every turn that changed
+# files. Put typecheck, lint, and a quick unit-test subset here. Leave the slow end-to-end
+# suite to CI or /fanout's final verification.
+# Exit 0 = pass. Anything else = Claude is told to fix it.
+set -e
+
+# Examples (keep the ones that match this project, delete the rest):
+# npx --no-install tsc --noEmit
+# npx --no-install eslint . --quiet
+# npm test --silent
+# ruff check . && pytest -q -x --ff
+# go vet ./... && go test ./... -short
+# cargo check --quiet && cargo test --quiet
