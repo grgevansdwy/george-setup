@@ -36,6 +36,7 @@ Wait for every worker in the wave to finish before starting the fan-in. If a wor
 2. Spawn one **integrator** subagent with: the feature branch name, the DONE/PARTIAL branches in ID order, every "Needs outside my unit" item, the interface contracts, and the verify commands. It merges, resolves conflicts and runs the wave's checks.
 3. If the integrator reports failures it couldn't fix, stop and show the user. Options: retry the unit with the failure as context, fix it here serially, or drop it from the plan.
 4. Only start the next wave once this wave's integration is green. The next wave's worktrees branch from the new `HEAD`, so they see everything merged so far.
+5. **Milestone boundary.** When the wave just merged was the last one of a milestone (Milestone column), stop even with `--yes`. Show what that milestone built and how its "Success means" from the spec was checked, then ask whether to continue to the next milestone. Milestones exist so a human looks before more is built on top.
 
 ## 4. Finish
 - Run the full verification from CLAUDE.md (tests, lint, typecheck) on the feature branch.

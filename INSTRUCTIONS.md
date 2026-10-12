@@ -23,14 +23,14 @@ All of it is project-level, under `<target>/.claude/`. **Never write to `~/.clau
 | Worktree copy list | `.worktreeinclude` | Gitignored files (like `.env`) copied into every worktree Claude creates, from `templates/worktreeinclude.example` |
 | Self-test | `.claude/hooks/selftest.sh` | Runs test cases against every hook. It isn't attached to any hook event |
 | Subagents | `.claude/agents/*.md` | `code-reviewer`, `explorer`, `test-writer`, `debugger`, `planner`, plus the fan-out trio `implementer`, `integrator`, `verifier` |
-| Skills | `.claude/skills/*/SKILL.md` | `/recap`, `/cleanup`, `/cleanup-all`, `/interview`, `/explain`, and the parallel ones `/fanout`, `/deep-review`, `/investigate` |
+| Skills | `.claude/skills/*/SKILL.md` | `/interview`, `/spec`, `/architecture-review`, `/explain`, `/cleanup`, `/cleanup-all`, `/recap`, and the parallel ones `/fanout`, `/deep-review`, `/investigate`. `/spec` carries the spec and decision-log templates; `/architecture-review` carries `BRAIN.md` |
 | Workflows | `.claude/workflows/*.js` | `/audit`: a saved dynamic workflow that fans out one agent per file and verifies every finding |
 | Project memory | `CLAUDE.md` | **Written for each project** from `templates/CLAUDE.md.template` (see Part B) |
 | Personal memory | `CLAUDE.local.md` | Created from the template and gitignored |
 | MCP (optional) | `.mcp.json` | Only if the user asks for it, adapted from `templates/mcp.json.example` |
-| Templates | `templates/` | The whole folder, copied as it is (see A2). Blank `SPEC.md`, `SPEC-DETAILED.md`, `DECISIONS.md` and `DESIGN.md` to copy from when starting a piece of work, `BRAIN.md` as the architecture baseline they refer to, and the install-time templates above |
+| Decision log | `docs/DECISIONS.md` | Not installed. `/spec` creates it the first time a decision is locked, then appends to it |
 
-**The `templates/` folder must stay in the target.** The user may delete this repo once the install is done, so the target needs its own copy. Nothing installed in the target may point back to a path inside this repo.
+**`SRC/templates/` is install-time only. Don't copy it into the target.** Everything a project needs later travels inside its skill folder, so the user can delete this repo once the install is done. Nothing installed in the target may point back to a path inside this repo.
 
 Don't copy `README.md`, `INSTRUCTIONS.md`, or any PDF into the target.
 
@@ -50,7 +50,7 @@ Throughout this section, `SRC` is this repo's root (where this file is) and `TGT
 3. Check the tools the hooks need:
    - `jq` is required by the hooks. If it's missing, tell the user how to install it (`brew install jq` or `apt install jq`). The hooks still run without it, but they skip their checks and warn.
    - Note which formatters the project **is configured for**: prettier config or dependency, `[tool.ruff]` or `ruff.toml`, `[tool.black]`, a Go or Rust project. Also check whether each one is installed. Any formatter that is configured but not installed goes into A9 as a follow-up.
-4. List what's already in `TGT/.claude/` and `TGT/templates/`, plus `TGT/CLAUDE.md`, `TGT/CLAUDE.local.md` and `TGT/.mcp.json`. **Nothing that already exists may be silently overwritten.**
+4. List what's already in `TGT/.claude/`, plus `TGT/CLAUDE.md`, `TGT/CLAUDE.local.md`, `TGT/.mcp.json` and `TGT/docs/DECISIONS.md`. **Nothing that already exists may be silently overwritten.**
 
 ### A2. Copy hooks, agents and skills
 The units to copy are:
@@ -59,22 +59,22 @@ The units to copy are:
 - each skill **directory** in `SRC/.claude/skills/`
 - each workflow script in `SRC/.claude/workflows/`
 
-Create any missing directories, and copy with `cp -p` so file permissions are kept. For each unit:
+Create any missing directories, and copy with `cp -p` (`cp -Rp` for a skill directory, which includes its supporting files) so file permissions are kept. For each unit:
 - If it doesn't exist in `TGT`, copy it.
 - If it exists and is identical, skip it.
 - If it exists and is different, show the user a short diff and ask: keep theirs, replace with ours, or install ours under a new name (e.g. `fanout-harness`).
 
 When you rename something:
 - For a skill, rename the directory **and** the `name:` in its frontmatter.
-- For an agent, rename the file and its `name:`, then update every skill that calls it by name. `/deep-review` calls `code-reviewer` and `verifier`, `/interview` calls `planner` and `explorer`, `/fanout` calls `implementer` and `integrator`, `/investigate` calls `debugger`, `explorer` and `test-writer`, and `/explain` and `/cleanup-all` call `explorer`.
+- For an agent, rename the file and its `name:`, then update every skill that calls it by name. `/deep-review` calls `code-reviewer` and `verifier`, `/interview` calls `planner` and `explorer` (and the `spec` skill, which calls the `architecture-review` skill, so rename those references too), `/fanout` calls `implementer` and `integrator`, `/investigate` calls `debugger`, `explorer` and `test-writer`, and `/explain` and `/cleanup-all` call `explorer`.
 - Don't name any skill `review`: Claude Code's built-in `/review` is an alias of its multi-agent `/code-review`, and a project skill with that name collides with it.
 - Use the new names in the CLAUDE.md you write and in the cheat-sheet you give the user.
 
 Then run `chmod +x "$TGT"/.claude/hooks/*.sh`.
 
-**Templates folder.** Copy every file in `SRC/templates/` to `TGT/templates/`, using the same copy / skip / ask rule per file. This copy is what keeps the templates available after `SRC` is deleted, so don't skip it and don't replace it with a symlink or a path back to `SRC`.
-- If `TGT/templates/` already exists and belongs to the project (Django, Jinja or email templates, for example), don't mix our files into it. Ask the user where to put them, and use `.claude/templates/` if they have no preference or aren't available.
-- Wherever the folder ends up, use that path in the CLAUDE.md you write and in the A9 report.
+**Leftovers from an older install.** Earlier versions copied `templates/` into the project. If `TGT/templates/` (or `TGT/.claude/templates/`) holds this harness's old files (`BRAIN.md`, `SPEC.md`, `SPEC-DETAILED.md`, `DECISIONS.md`, `DESIGN.md`, `*.template`, `*.example`), ask before removing them. Never touch the project's own templates (Django, Jinja, email and so on).
+- If the old `DECISIONS.md` has real entries in it, move it to `TGT/docs/DECISIONS.md` instead of deleting it, so `/spec` keeps appending to it.
+- Filled-in old specs are the user's work: offer to move them to `docs/plans/`.
 
 ### A3. Merge settings.json
 - If `TGT/.claude/settings.json` doesn't exist, copy `SRC/.claude/settings.json`.
@@ -131,7 +131,7 @@ Look at the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
    .claude/settings.local.json
    .claude/worktrees/
    ```
-3. Make sure `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/`, `.claude/skills/`, `.claude/workflows/`, `.claude/verify.sh`, `.worktreeinclude`, `templates/` and `CLAUDE.md` are **not** gitignored. They're meant to be shared with the team, and worktrees only contain committed files, so `verify.sh` must be committed for parallel workers to run it.
+3. Make sure `.claude/settings.json`, `.claude/hooks/`, `.claude/agents/`, `.claude/skills/`, `.claude/workflows/`, `.claude/verify.sh`, `.worktreeinclude`, `docs/` and `CLAUDE.md` are **not** gitignored. They're meant to be shared with the team, and worktrees only contain committed files, so `verify.sh` must be committed for parallel workers to run it.
 
 ### A7. MCP servers (optional, so ask first)
 Ask: *"Do you want any MCP servers (database, GitHub, internal APIs)?"*
@@ -147,7 +147,7 @@ bash .claude/hooks/selftest.sh      # tests every hook; ends with ALL PASSED
 ls .claude/agents .claude/skills .claude/workflows
 [ -f .claude/verify.sh ] && bash .claude/verify.sh && echo "verify.sh OK"
 jq -r '.worktree.baseRef' .claude/settings.json   # should print head
-ls templates                        # must match SRC/templates file for file
+ls .claude/skills/spec .claude/skills/architecture-review   # template.md, decisions-template.md, BRAIN.md
 wc -l CLAUDE.md
 ```
 **Heads-up:** the `block-dangerous` hook may be active in your own session, either from SRC's settings or from TGT's after A3. It checks the **whole Bash command line**, including heredocs and `echo` strings. So never type test cases like a force push or `rm -rf` into a Bash command, because your own call will be blocked. Use `selftest.sh`, which keeps the cases inside the script. If you add project-specific rules in A4, add matching cases to `selftest.sh` with the Write or Edit tool.
@@ -209,7 +209,7 @@ CLAUDE.md is Claude's **persistent memory for the project**. It's loaded at the 
 
 ### Typical feature loop
 ```
-/interview add password reset   → Q&A, then docs/plans/PLAN_PASSWORD_RESET.md with a Work units table
+/interview add password reset   → Q&A → /spec writes SPEC_PASSWORD_RESET.md (+ decisions) → planner writes PLAN_PASSWORD_RESET.md with work units
 /fanout                         → builds independent units in parallel worktrees, merges each wave, runs checks
    (or implement step by step here when the plan says fan-out isn't worth it)
 /deep-review                    → 4 parallel reviewers (correctness, security, tests, design) + a verifier
@@ -234,7 +234,9 @@ Fan-out multiplies token use: each worker has its own context. It pays off when 
 ### Skills
 | Command | What it does |
 |---|---|
-| `/interview <topic>` | Keeps asking questions until the requirements are clear, has the planner write `docs/plans/PLAN_<TASK>.md` (including parallel work units), then explains the plan |
+| `/interview <topic>` | Keeps asking questions until the requirements are clear, runs `/spec`, then has the planner write `docs/plans/PLAN_<TASK>.md` (including parallel work units), then explains both |
+| `/spec [task]` | Writes the human-readable spec `docs/plans/SPEC_<TASK>.md` (goal, never-go-wrong rules, scope, decisions, milestones) and records locked decisions in `docs/DECISIONS.md`. Runs `/architecture-review` for structural work. Called by `/interview`; usable on its own |
+| `/architecture-review [spec or description]` | Reviews a design against `BRAIN.md` in a fresh, read-only context: score, what's wrong, what's missing, revised flow, open questions, proposed decisions |
 | `/fanout [plan] [--max N]` | Fan-out: one `implementer` per unit in its own worktree, all at once. Fan-in: `integrator` merges each wave and runs the checks. Waves follow the plan's dependencies |
 | `/deep-review [target] [--quick]` | Parallel lens reviews in fresh contexts, then a `verifier` tries to refute each serious finding. One deduplicated report |
 | `/investigate <symptom>` | Reproduces the bug, then one `debugger` per hypothesis in parallel, then compares the evidence |
@@ -266,17 +268,16 @@ Claude uses these automatically when they fit, or you can ask by name: *"use the
 - `bash .claude/hooks/selftest.sh` checks that all the hooks still work.
 - You get a desktop notification when Claude is waiting on you.
 
-### Templates (`templates/`)
-This folder lives in your project and stays there after the harness repo is deleted. Copy a file out of it when you need one, and leave the original blank.
+### Specs, plans and decisions
+Three files per piece of work, each with one job:
 
-| File | Use it for |
-|---|---|
-| `SPEC.md` | The 1-2 page spec for the human: goal, never-go-wrong list, constraints, flow, milestones |
-| `SPEC-DETAILED.md` | The build spec for the coding agent: structure, data model, interfaces, milestone plans |
-| `DECISIONS.md` | The append-only decision log that the two specs reference by ID (`D1`, `D2`, …) |
-| `DESIGN.md` | A short design write-up: architecture, key decisions, failure handling, tradeoffs |
-| `BRAIN.md` | The architecture baseline Claude reads when reviewing a design or drafting `SPEC.md` |
-| `CLAUDE.md.template`, `CLAUDE.local.md.template`, `mcp.json.example` | Used during the install. Kept so you can redo or extend that setup later |
+| File | Written by | For | Changes |
+|---|---|---|---|
+| `docs/plans/SPEC_<TASK>.md` | `/spec` | You: what and why, never-go-wrong rules, milestones | Rarely, once approved |
+| `docs/plans/PLAN_<TASK>.md` | the planner | Claude: how, file by file, parallel work units | As units get built |
+| `docs/DECISIONS.md` | `/spec` | Everyone: why the project is the way it is | Append-only; one log per project |
+
+When you want to change a recorded decision, say so: Claude adds a new entry that supersedes the old one instead of editing history.
 
 ### Tips
 - **Two-Claude review:** for the most honest review, implement in session A and run `/deep-review` in a brand-new session B.

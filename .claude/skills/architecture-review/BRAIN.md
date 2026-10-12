@@ -1,6 +1,6 @@
 # BRAIN.md: Architecture Decision Baseline
 
-You are reading the architecture baseline for this repo. Use it to (1) review the owner's rough architecture, (2) argue for or against decisions with evidence, and (3) draft SPEC.md.
+You are reading the architecture baseline for this repo. Use it to (1) review the owner's rough architecture, (2) argue for or against decisions with evidence, and (3) inform the spec that `/spec` writes (`docs/plans/SPEC_<TASK>.md`).
 
 Every rule and decision has an ID (P1, CF-2, RF-7). Cite IDs when you argue, so the owner can look them up.
 
@@ -12,7 +12,7 @@ Every rule and decision has an ID (P1, CF-2, RF-7). Cite IDs when you argue, so 
 - **Principles (P)** are strong rules. Deviate only with a stated reason, and flag the deviation.
 - **Defaults** are starting points, not rules. If the owner chose differently and the choice is reasonable for the constraints, accept it in one line and move on.
 - **Product and library names are examples.** They change often. Recommend the category; name a product only as an option, and tell the owner to check current docs.
-- **The owner's locked decisions in SPEC.md override this file.** If you believe a locked decision is wrong, say so with reasons. Do not change it yourself.
+- **The owner's locked decisions override this file.** They live in the spec's Decisions table and in `docs/DECISIONS.md` (Active entries). If you believe a locked decision is wrong, say so with reasons. Do not change it yourself.
 
 ### 0.2 Argument style
 - State the biggest flaw first. If the design is sound, say so in one line.
@@ -33,8 +33,8 @@ Every rule and decision has an ID (P1, CF-2, RF-7). Cite IDs when you argue, so 
 5. **Check the red flags** (Section 16).
 6. **Output the review** in the format in Section 17.1.
 
-### 1.2 When drafting SPEC.md
-1. Use the template in Section 17.2. Keep it to 1-2 pages. It is written for a human.
+### 1.2 When a spec is being drafted
+1. The `/spec` skill owns the template (`.claude/skills/spec/template.md`). Keep it to 1-2 pages. It is written for a human.
 2. Every locked decision gets a one-line reason.
 3. Anything undecided goes under Open Decisions with 2-3 options and a recommendation. Never fill a gap silently.
 4. Milestones: thin end-to-end slice first (P10), then deepen. Each milestone states what to build, how to test, and what success means.
@@ -434,38 +434,11 @@ OPEN QUESTIONS FOR THE OWNER:
 - <Only questions whose answer changes the design>
 ```
 
-### 17.2 SPEC.md template (1-2 pages, human-readable)
+### 17.2 Spec template
 
-```
-# <Project>: SPEC
+The spec template lives in the `/spec` skill (`.claude/skills/spec/template.md`), so there is one copy to maintain. When reviewing a spec, check it against §1.2.
 
-## Goal
-<2-3 sentences.>
-
-## Never go wrong
-1. ...  (3-5 items; each maps to a test)
-
-## Constraints
-<C1-C7 values, one line each>
-
-## Architecture
-<Numbered flow, each step marked (code) or (model). Note parallel and pause/resume points.>
-
-## Locked decisions
-| # | Decision | Reason |
-
-## Open decisions
-| # | Decision | Options | Recommendation | Needed before |
-
-## Milestones
-| # | Build | Test | Success means |
-(M1 = thin end-to-end slice with fakes)
-
-## Assumptions to confirm
-- ...
-```
-
-### 17.3 Decision record (append to DECISIONS.md)
+### 17.3 Decision record (appended to `docs/DECISIONS.md` by `/spec`; full entry format in `.claude/skills/spec/decisions-template.md`)
 
 ```
 D<n>: <Decision>
