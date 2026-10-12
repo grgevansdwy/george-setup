@@ -22,7 +22,7 @@ All of it is project-level, under `<target>/.claude/`. **Never write to `~/.clau
 | Worktree copy list | `.worktreeinclude` | Gitignored files (like `.env`) copied into every worktree Claude creates, from `templates/worktreeinclude.example` |
 | Self-test | `.claude/hooks/selftest.sh` | Runs test cases against every hook. It isn't attached to any hook event |
 | Subagents | `.claude/agents/*.md` | `code-reviewer`, `explorer`, `test-writer`, `debugger`, `planner`, plus the fan-out trio `implementer`, `integrator`, `verifier` |
-| Skills | `.claude/skills/*/` | `/interview`, `/spec`, `/decisions`, `/architecture-reviewer`, `/explain`, `/cleanup`, `/cleanup-all`, `/recap`, and the parallel ones `/fanout`, `/deep-review`, `/investigate`. Each is a directory: `SKILL.md` plus any supporting file (`spec` and `decisions` each carry a `template.md`) |
+| Skills | `.claude/skills/*/` | `/interview`, `/spec`, `/decisions`, `/architecture-reviewer`, `/explain`, `/map-repo`, `/cleanup`, `/cleanup-all`, `/recap`, and the parallel ones `/fanout`, `/deep-review`, `/investigate`. Each is a directory: `SKILL.md` plus any supporting file (`spec` and `decisions` each carry a `template.md`) |
 | Workflows | `.claude/workflows/*.js` | `/audit`: a saved dynamic workflow that fans out one agent per file and verifies every finding |
 | Project memory | `CLAUDE.md` | **Written for each project** from `templates/CLAUDE.md.template` (see Part B) |
 | Personal memory | `CLAUDE.local.md` | Created from the template and gitignored |
@@ -66,7 +66,7 @@ Create any missing directories, and copy with `cp -p` so file permissions are ke
 When you rename something:
 - For a skill, rename the directory **and** the `name:` in its frontmatter.
 - Skills also call each other by name: `/interview` calls `spec`, `spec` calls `decisions` and `architecture-reviewer`, and `architecture-reviewer` and `/recap` point to `spec` and `decisions`. Update those mentions when you rename one. Those three must stay model-invocable (no `disable-model-invocation: true`), or the calls stop working.
-- For an agent, rename the file and its `name:`, then update every skill that calls it by name. `/deep-review` calls `code-reviewer` and `verifier`, `/interview` calls `planner` and `explorer`, `/fanout` calls `implementer` and `integrator`, `/investigate` calls `debugger`, `explorer` and `test-writer`, and `/explain` and `/cleanup-all` call `explorer`.
+- For an agent, rename the file and its `name:`, then update every skill that calls it by name. `/deep-review` calls `code-reviewer` and `verifier`, `/interview` calls `planner` and `explorer`, `/fanout` calls `implementer` and `integrator`, `/investigate` calls `debugger`, `explorer` and `test-writer`, and `/explain`, `/map-repo` and `/cleanup-all` call `explorer`.
 - Don't name any skill `review`: Claude Code's built-in `/review` is an alias of its multi-agent `/code-review`, and a project skill with that name collides with it.
 - Use the new names in the CLAUDE.md you write and in the cheat-sheet you give the user.
 
@@ -121,7 +121,7 @@ Look at the manifests (`package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
 4. Check it: under 200 lines, no template comments left over, and no secrets.
    - **Commands must be real.** Use commands from the manifests, scripts, Makefile or CI. Don't invent them. If a command doesn't exist (for example, no lint or build step), write `none configured`.
    - Run the test and lint commands if they're cheap. If one can't run because the right environment can't be found (wrong Python or Node version, missing virtualenv), keep it in CLAUDE.md, add `(unverified)` next to it, and list it in A9.
-5. For a large monorepo, add short `CLAUDE.md` files in the key subdirectories (e.g. `apps/web/CLAUDE.md`) rather than letting the root file grow. Claude loads those automatically when it works in that directory.
+5. For a large repo or monorepo, don't let the root file grow. Keep it to the map and the commands, and tell the user in A9 to run `/map-repo` after restarting: it writes a short `CLAUDE.md` in each area (Claude loads those automatically when it works in that directory) plus `docs/knowledge/START_HERE.md`. Don't run it during the install, because it's a large fan-out the user should approve.
 
 ### A6. Personal files and .gitignore
 1. If `TGT/CLAUDE.local.md` doesn't exist, copy `SRC/templates/CLAUDE.local.md.template` there. Fill in anything personal the user mentioned during the install (local ports, preferences). Otherwise leave the template as it is, comments included, as a starting point for them.
@@ -223,6 +223,7 @@ Give the user this block at the end of the install (A9), adjusted for any rename
 
 ### Also worth knowing
 - `/architecture-reviewer <design>` critiques a design before you build it. `/decisions <decision>` logs a decision in `docs/DECISIONS.md`.
+- On a large repo, run `/map-repo` once. It writes a short `CLAUDE.md` per area plus `docs/knowledge/START_HERE.md`, so Claude doesn't have to read everything. `/map-repo --refresh` updates only what changed.
 - `/investigate <symptom>` for a bug with an unclear cause, `/explain <thing>` for "how does X work?", `/audit <concern>` to sweep the whole repo.
 - **Commit before you fan out.** Parallel workers branch from your committed `HEAD`, so uncommitted work is invisible to them.
 - Destructive commands and edits to secrets or lockfiles are blocked by hooks. If you really mean it, run the command yourself with `! <command>`.

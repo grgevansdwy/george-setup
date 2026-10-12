@@ -74,6 +74,8 @@ Three files carry the work between steps:
 | `docs/DECISIONS.md` | `/decisions` | You and Claude | The append-only log of every big decision, with IDs the spec cites (`D1`, `D2`, …) |
 | `docs/plans/PLAN_<TASK>.md` | `/interview` → `planner` | Claude | Ordered steps, files to change, and the work units `/fanout` runs in parallel |
 
+On a large repo, run `/map-repo` once before any of this. Claude Code loads a folder's `CLAUDE.md` only when it works in that folder, so a short note per area plus one map (`docs/knowledge/START_HERE.md`) lets Claude find its way without reading everything. `/map-repo --refresh` later redoes only the areas whose code changed.
+
 Hooks run the whole time without being asked: files are formatted after each edit, destructive commands and edits to secrets are blocked, and Claude can't say "done" while the project's fast checks fail.
 
 ### Which tool for which job
@@ -83,6 +85,7 @@ Hooks run the whole time without being asked: files are formatted after each edi
 | A feature with 3+ independent pieces | `/interview` → `/fanout` | One worktree per unit, then a merge-and-verify step per wave |
 | A small or tightly coupled change | `/interview`, then build in the session | Fan-out costs more than it saves here |
 | A design you want checked before building | `/architecture-reviewer <design>` | Scores it against a fixed baseline and names the rule each problem breaks |
+| A big repo Claude can't hold in its head | `/map-repo`, then `/map-repo --refresh` now and then | Writes a short `CLAUDE.md` per area plus a map, so Claude loads only the part it's working in |
 | Questions about the code ("how does X work?") | `/explain` | Read-only, traced through the real code with `path:line` citations |
 | Review before merging | `/deep-review`, or built-in `/code-review high` | Different lenses catch different bugs, and the verifier drops false alarms |
 | A bug whose cause is unclear | `/investigate <symptom>` | Tests competing hypotheses in parallel instead of anchoring on the first idea |
@@ -116,6 +119,7 @@ Skills are commands you type as `/name`. Claude can also run the ones marked **a
 | `/fanout [plan] [--max N] [--yes]` | Builds a plan's work units in parallel, one `implementer` per unit in its own worktree, then has the `integrator` merge and verify each wave. |
 | `/investigate <symptom>` | Reproduces a bug, then runs one `debugger` per hypothesis in parallel and compares the evidence to find the root cause. |
 | `/explain <thing>` (auto) | Traces how a feature, flow or file works and explains it in a beginner-friendly format with `path:line` citations. |
+| `/map-repo [dir] [--refresh]` | Surveys the repo, sends one `explorer` per area, and writes a short `CLAUDE.md` in each area plus the map `docs/knowledge/START_HERE.md`. |
 
 **Review and ship**
 
@@ -203,14 +207,15 @@ your-project/
 ├── .claude/
 │   ├── settings.json          permissions, worktree base, hook wiring
 │   ├── verify.sh              your project's fast checks
-│   ├── skills/                the 11 skills
+│   ├── skills/                the 12 skills
 │   ├── agents/                the 8 subagents
 │   ├── hooks/                 the 6 hook scripts
 │   └── workflows/             /audit
 └── docs/                      created as you work
     ├── specs/SPEC_<TASK>.md
     ├── plans/PLAN_<TASK>.md
-    └── DECISIONS.md
+    ├── DECISIONS.md
+    └── knowledge/START_HERE.md   the repo map, from /map-repo
 ```
 
 ### Tips
