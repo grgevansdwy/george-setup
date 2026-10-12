@@ -47,7 +47,7 @@ tests/        #
 
 ### Workflow
 - Plan non-trivial work with `/interview`. Build plans with 3+ independent units with `/fanout`, smaller ones here. Review with `/deep-review`, tidy up with `/cleanup`, and commit with `/recap`.
-- Plans live in `docs/plans/`.
+- Specs live in `docs/specs/`, plans in `docs/plans/`, and the append-only decision log in `docs/DECISIONS.md`.
 - Parallel workers run in fresh git worktrees. Set one up with: ``  <!-- the install command, e.g. `pnpm install --frozen-lockfile` -->
 
 ### Don't

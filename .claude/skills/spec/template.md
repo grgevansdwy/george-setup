@@ -1,6 +1,6 @@
 # <Project>: SPEC
 
-> For the human. Keep to 1-2 pages. Detailed plans go in SPEC-DETAILED.md. Decision history goes in DECISIONS.md.
+> For the human. Keep to 1-2 pages. The build plan goes in `docs/plans/PLAN_<TASK_NAME>.md`. Decision history goes in `docs/DECISIONS.md`.
 
 ## 1. Goal
 <2-3 sentences: what it does, for whom.>

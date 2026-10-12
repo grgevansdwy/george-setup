@@ -1,9 +1,8 @@
 # INSTRUCTIONS: installing this Claude Code harness into a project
 
-> **For the user:** clone this repo next to your project, open Claude Code **in your project**, and say:
-> *"Read `<path-to-this-repo>/INSTRUCTIONS.md` and install the harness into this project."*
+> **This file is written for the agent doing the install.** The human guide (quick start, workflow, and a reference for every skill, subagent, hook and setting) is `README.md`.
 >
-> **For the agent:** follow Part A step by step. Part B covers how to write CLAUDE.md, and Part C is the day-to-day guide you'll hand to the user at the end.
+> Follow Part A step by step. Part B covers how to write CLAUDE.md, and Part C is the cheat-sheet you hand to the user at the end.
 >
 > **No user available?** If you're running headless or as a subagent, wherever a step says to ask, choose the safest default: keep the existing file, skip optional steps, and mark anything you couldn't check as unverified. List every assumption in the A9 report.
 
@@ -23,12 +22,12 @@ All of it is project-level, under `<target>/.claude/`. **Never write to `~/.clau
 | Worktree copy list | `.worktreeinclude` | Gitignored files (like `.env`) copied into every worktree Claude creates, from `templates/worktreeinclude.example` |
 | Self-test | `.claude/hooks/selftest.sh` | Runs test cases against every hook. It isn't attached to any hook event |
 | Subagents | `.claude/agents/*.md` | `code-reviewer`, `explorer`, `test-writer`, `debugger`, `planner`, plus the fan-out trio `implementer`, `integrator`, `verifier` |
-| Skills | `.claude/skills/*/SKILL.md` | `/recap`, `/cleanup`, `/cleanup-all`, `/interview`, `/explain`, and the parallel ones `/fanout`, `/deep-review`, `/investigate` |
+| Skills | `.claude/skills/*/` | `/interview`, `/spec`, `/decisions`, `/architecture-reviewer`, `/explain`, `/cleanup`, `/cleanup-all`, `/recap`, and the parallel ones `/fanout`, `/deep-review`, `/investigate`. Each is a directory: `SKILL.md` plus any supporting file (`spec` and `decisions` each carry a `template.md`) |
 | Workflows | `.claude/workflows/*.js` | `/audit`: a saved dynamic workflow that fans out one agent per file and verifies every finding |
 | Project memory | `CLAUDE.md` | **Written for each project** from `templates/CLAUDE.md.template` (see Part B) |
 | Personal memory | `CLAUDE.local.md` | Created from the template and gitignored |
 | MCP (optional) | `.mcp.json` | Only if the user asks for it, adapted from `templates/mcp.json.example` |
-| Templates | `templates/` | The whole folder, copied as it is (see A2). Blank `SPEC.md`, `SPEC-DETAILED.md`, `DECISIONS.md` and `DESIGN.md` to copy from when starting a piece of work, `BRAIN.md` as the architecture baseline they refer to, and the install-time templates above |
+| Templates | `templates/` | The whole folder, copied as it is (see A2). These are the install-time templates named above: `CLAUDE.md.template`, `CLAUDE.local.md.template`, `mcp.json.example`, `verify.sh.example` and `worktreeinclude.example`. The spec and decision-log templates are not here: they live inside the `spec` and `decisions` skills |
 
 **The `templates/` folder must stay in the target.** The user may delete this repo once the install is done, so the target needs its own copy. Nothing installed in the target may point back to a path inside this repo.
 
@@ -56,7 +55,7 @@ Throughout this section, `SRC` is this repo's root (where this file is) and `TGT
 The units to copy are:
 - each hook script in `SRC/.claude/hooks/`
 - each agent file in `SRC/.claude/agents/`
-- each skill **directory** in `SRC/.claude/skills/`
+- each skill **directory** in `SRC/.claude/skills/`, with everything in it (`cp -Rp`). `spec/template.md` and `decisions/template.md` must arrive with their `SKILL.md`, or those skills have nothing to fill in
 - each workflow script in `SRC/.claude/workflows/`
 
 Create any missing directories, and copy with `cp -p` so file permissions are kept. For each unit:
@@ -66,6 +65,7 @@ Create any missing directories, and copy with `cp -p` so file permissions are ke
 
 When you rename something:
 - For a skill, rename the directory **and** the `name:` in its frontmatter.
+- Skills also call each other by name: `/interview` calls `spec`, `spec` calls `decisions` and `architecture-reviewer`, and `architecture-reviewer` and `/recap` point to `spec` and `decisions`. Update those mentions when you rename one. Those three must stay model-invocable (no `disable-model-invocation: true`), or the calls stop working.
 - For an agent, rename the file and its `name:`, then update every skill that calls it by name. `/deep-review` calls `code-reviewer` and `verifier`, `/interview` calls `planner` and `explorer`, `/fanout` calls `implementer` and `integrator`, `/investigate` calls `debugger`, `explorer` and `test-writer`, and `/explain` and `/cleanup-all` call `explorer`.
 - Don't name any skill `review`: Claude Code's built-in `/review` is an alias of its multi-agent `/code-review`, and a project skill with that name collides with it.
 - Use the new names in the CLAUDE.md you write and in the cheat-sheet you give the user.
@@ -145,6 +145,7 @@ Run these from `TGT`, then report the results:
 ```bash
 bash .claude/hooks/selftest.sh      # tests every hook; ends with ALL PASSED
 ls .claude/agents .claude/skills .claude/workflows
+ls .claude/skills/spec/template.md .claude/skills/decisions/template.md
 [ -f .claude/verify.sh ] && bash .claude/verify.sh && echo "verify.sh OK"
 jq -r '.worktree.baseRef' .claude/settings.json   # should print head
 ls templates                        # must match SRC/templates file for file
@@ -157,7 +158,7 @@ Finish with:
 1. What was **installed**, what was **merged**, and what was **skipped**, with the reason for each skip.
 2. Any **manual follow-ups**, such as installing `jq` or a formatter, setting MCP env vars, or reviewing the CLAUDE.md diff.
 3. **"Restart Claude Code (or run `/hooks` to check) so the new hooks, agents and skills load. If you've never opened Claude Code interactively in this project, do it once and accept the trust prompt: until the folder is trusted, headless runs (`claude -p`) ignore the project's `permissions.allow` rules and the hooks inside agent files, including the implementer's verify gate."**
-4. A short cheat-sheet: the "Typical feature loop" block from Part C, plus one line pointing to Part C of `SRC/INSTRUCTIONS.md` for the full reference. Use the renamed skill names if anything was renamed.
+4. The cheat-sheet from Part C, plus one line pointing to `SRC/README.md` for the full reference. Use the renamed skill names if anything was renamed.
 5. A suggestion to commit the changes, e.g. `chore: add Claude Code harness`. Don't commit unless the user says to.
 
 ---
@@ -205,84 +206,24 @@ CLAUDE.md is Claude's **persistent memory for the project**. It's loaded at the 
 
 ---
 
-# Part C: Day-to-day usage (cheat-sheet for the user)
+# Part C: Cheat-sheet to hand to the user
+
+Give the user this block at the end of the install (A9), adjusted for any renamed skills. Keep it this short. The full reference for every skill, subagent, hook and setting is in `SRC/README.md`, which is written for them.
 
 ### Typical feature loop
 ```
-/interview add password reset   → Q&A, then docs/plans/PLAN_PASSWORD_RESET.md with a Work units table
+/interview add password reset   → Q&A, then docs/specs/SPEC_PASSWORD_RESET.md (for you to sign off)
+                                  and docs/plans/PLAN_PASSWORD_RESET.md (work units for the build)
 /fanout                         → builds independent units in parallel worktrees, merges each wave, runs checks
    (or implement step by step here when the plan says fan-out isn't worth it)
 /deep-review                    → 4 parallel reviewers (correctness, security, tests, design) + a verifier
-/cleanup                        → strip debug logs, unused imports and dead code from the diff (or built-in /simplify)
+/cleanup                        → strip debug logs, unused imports and dead code from the diff
 /recap                          → update README/CLAUDE.md/docs, then git add + commit (no push)
 ```
 
-### Which parallel tool for which job
-| Shape of the work | Use | Why |
-|---|---|---|
-| Questions about the code ("how does X work?") | `/explain`, or ask for 2-3 explorers in parallel | Read-only, so there's nothing to conflict |
-| A feature with 3+ independent pieces | `/interview` → `/fanout` | Worktree per unit, then a merge-and-verify step per wave |
-| One mechanical change across many files (rename, migration) | built-in `/batch <instruction>` | 5-30 worktree agents, each opens its own PR |
-| Review before merging | `/deep-review`, or built-in `/code-review high` | Different lenses catch different bugs; the verifier drops false alarms |
-| A bug whose cause is unclear | `/investigate <symptom>` | Competing hypotheses in parallel instead of anchoring on the first idea |
-| Sweep the whole repo for one concern | `/audit <concern>` (saved workflow) or `ultracode: <task>` | A script holds the plan, so dozens of agents don't flood your context |
-| Two unrelated tasks at once | `claude -w <name>` in a second terminal, or `claude agents` | Separate sessions in separate worktrees |
-| Peers that must argue or coordinate | agent teams (experimental, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) | Shared task list and messaging, at a much higher token cost |
-
-Fan-out multiplies token use: each worker has its own context. It pays off when the units are truly independent. For a small or tightly coupled change, one session is faster and cheaper.
-
-### Skills
-| Command | What it does |
-|---|---|
-| `/interview <topic>` | Keeps asking questions until the requirements are clear, has the planner write `docs/plans/PLAN_<TASK>.md` (including parallel work units), then explains the plan |
-| `/fanout [plan] [--max N]` | Fan-out: one `implementer` per unit in its own worktree, all at once. Fan-in: `integrator` merges each wave and runs the checks. Waves follow the plan's dependencies |
-| `/deep-review [target] [--quick]` | Parallel lens reviews in fresh contexts, then a `verifier` tries to refute each serious finding. One deduplicated report |
-| `/investigate <symptom>` | Reproduces the bug, then one `debugger` per hypothesis in parallel, then compares the evidence |
-| `/explain <thing>` | Uses the explorer to trace the code, then explains it with a beginner-friendly template. Claude can also run this on its own |
-| `/cleanup [files]` | Removes dead code, unused imports and debug statements, **only in the current changes** |
-| `/cleanup-all [dir]` | The same across the whole repo. It reports first and applies only what you approve |
-| `/recap [hint]` | Syncs the docs with the code, then stages and **commits** (never pushes) |
-| `/audit <concern>` | Saved dynamic workflow: one agent per file, then a refute pass on every finding. Watch it with `/workflows` |
-
-### Subagents
-Claude uses these automatically when they fit, or you can ask by name: *"use the debugger subagent on the failing login test"*.
-
-| Agent | Model | Can edit? | Job |
-|---|---|---|---|
-| `code-reviewer` | inherit | no | Reviews a diff, optionally through one lens or one shard: MUST FIX / SHOULD FIX / CONSIDER |
-| `verifier` | inherit | no (plan mode) | Tries to refute other agents' findings: CONFIRMED / REFUTED / UNVERIFIED |
-| `explorer` | haiku | no (plan mode) | "How does X work?" with `path:line` citations. Cheap enough to run several at once |
-| `planner` | inherit | no (plan mode) | Writes the implementation plan, including the parallel Work units table |
-| `implementer` | sonnet | yes, in its own worktree | Builds one work unit, runs its checks, commits to `fanout/<task>/<ID>` |
-| `integrator` | inherit | yes | Merges a wave's unit branches, resolves conflicts, runs the checks |
-| `test-writer` | sonnet | yes (told to edit tests only, not enforced) | Writes and runs tests in the project's existing style |
-| `debugger` | inherit | no | Reproduces a bug, tests one or more hypotheses, reports the root cause with evidence. Doesn't fix |
-
-### Hooks (always on)
-- Files are auto-formatted after each edit.
-- Destructive shell commands are blocked, and Claude is told why. If you really mean it, run the command yourself with `! <command>`.
-- Edits to `.env`, keys, lockfiles and `.git/` are blocked. `permissions.deny` also blocks *reading* the common `.env` and key files. That list doesn't cover every name (for example `.env.staging`), so add your own in `settings.json` if needed.
-- Before Claude (or a parallel worker) finishes, `verify-gate.sh` runs `.claude/verify.sh`. If the fast checks fail, Claude is sent back to fix them. It lets Claude stop on the second try, so a check that can't pass never traps it in a loop. In the main session it only runs when files changed.
-- `bash .claude/hooks/selftest.sh` checks that all the hooks still work.
-- You get a desktop notification when Claude is waiting on you.
-
-### Templates (`templates/`)
-This folder lives in your project and stays there after the harness repo is deleted. Copy a file out of it when you need one, and leave the original blank.
-
-| File | Use it for |
-|---|---|
-| `SPEC.md` | The 1-2 page spec for the human: goal, never-go-wrong list, constraints, flow, milestones |
-| `SPEC-DETAILED.md` | The build spec for the coding agent: structure, data model, interfaces, milestone plans |
-| `DECISIONS.md` | The append-only decision log that the two specs reference by ID (`D1`, `D2`, …) |
-| `DESIGN.md` | A short design write-up: architecture, key decisions, failure handling, tradeoffs |
-| `BRAIN.md` | The architecture baseline Claude reads when reviewing a design or drafting `SPEC.md` |
-| `CLAUDE.md.template`, `CLAUDE.local.md.template`, `mcp.json.example` | Used during the install. Kept so you can redo or extend that setup later |
-
-### Tips
-- **Two-Claude review:** for the most honest review, implement in session A and run `/deep-review` in a brand-new session B.
-- **Commit before you fan out.** Workers branch from your committed `HEAD` (`worktree.baseRef: "head"`), so uncommitted work is invisible to them.
-- **Too many permission prompts during /fanout?** Add the commands workers keep asking about to `permissions.allow`, or run the built-in `/fewer-permission-prompts`.
-- Leftover `fanout/*` branches mean a unit wasn't merged. `git branch --list 'fanout/*'` shows them.
-- **Ask to be interviewed:** "Interview me about …, and keep asking until you're sure."
+### Also worth knowing
+- `/architecture-reviewer <design>` critiques a design before you build it. `/decisions <decision>` logs a decision in `docs/DECISIONS.md`.
+- `/investigate <symptom>` for a bug with an unclear cause, `/explain <thing>` for "how does X work?", `/audit <concern>` to sweep the whole repo.
+- **Commit before you fan out.** Parallel workers branch from your committed `HEAD`, so uncommitted work is invisible to them.
+- Destructive commands and edits to secrets or lockfiles are blocked by hooks. If you really mean it, run the command yourself with `! <command>`.
 - When Claude repeats a mistake, add one line under "What Claude gets wrong" in CLAUDE.md. If it *must never* happen, make it a hook instead.
-- Run `/hooks`, `/memory`, `/tasks` (background agents) and `/workflows` in Claude Code to inspect what's loaded and running.

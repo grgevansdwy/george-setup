@@ -23,6 +23,8 @@ Check each of these if it exists and update only what is now wrong or missing:
   - Add only facts Claude can't easily infer from the code. No vague rules ("write clean code").
   - Never put secrets in it.
 - **docs/*.md, DESIGN.md, ARCHITECTURE.md, CHANGELOG.md**: update the sections the change affects. For CHANGELOG, add an entry under Unreleased.
+- **docs/specs/SPEC_*.md**: if what was built differs from the spec, update the spec to match and say so in the report.
+- **docs/DECISIONS.md**: append-only. Never edit old entries. Record a new decision with the **decisions** skill.
 - **docs/plans/PLAN_*.md**: if a plan was just completed, mark it done at the top (`Status: Done — <date>`).
 
 Keep edits small and factual. Don't rewrite docs for style.
